@@ -12,6 +12,7 @@ router.get('/', async (req, res) => {
 
   const width = parseInt(req.query.width, 10);
   const height = parseInt(req.query.height, 10);
+  const scale = Math.min(Math.max(parseFloat(req.query.scale) || 3, 1), 4);
 
   if (!width || !height || width < 1 || height < 1) {
     return res.status(400).json({
@@ -19,12 +20,12 @@ router.get('/', async (req, res) => {
     });
   }
 
-  if (width > 4096 || height > 4096) {
-    return res.status(400).json({ error: 'Maximum dimension is 4096px.' });
+  if (width * scale > 4096 || height * scale > 4096) {
+    return res.status(400).json({ error: 'Scaled dimensions exceed 4096px.' });
   }
 
   const verse = await fetchVerseOfTheDay();
-  const imageBuffer = await generateVerseImage(verse, width, height);
+  const imageBuffer = await generateVerseImage(verse, Math.round(width * scale), Math.round(height * scale));
 
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'public, max-age=3600'); // cache for 1 hour
