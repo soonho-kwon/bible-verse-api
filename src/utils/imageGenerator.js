@@ -1,34 +1,26 @@
 const { createCanvas } = require('@napi-rs/canvas');
 
-const BACKGROUND = '#1a1a2e';
-const ACCENT     = '#e8c87d';
-const TEXT_COLOR = '#f0ece2';
-
 async function generateVerseImage(verse, width, height) {
   const canvas = createCanvas(width, height);
   const ctx    = canvas.getContext('2d');
-  const scale  = Math.min(width, height) / 400; // responsive font scaling
+  const scale  = Math.min(width, height) / 400;
 
   // Background
-  ctx.fillStyle = BACKGROUND;
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, width, height);
 
-  // Decorative top bar
-  ctx.fillStyle = ACCENT;
-  ctx.fillRect(0, 0, width, Math.max(4, Math.round(4 * scale)));
-
-  const paddingX  = Math.round(width * 0.1);
-  const paddingY  = Math.round(height * 0.15);
-  const maxWidth  = width - paddingX * 2;
+  const paddingX   = Math.round(width * 0.1);
+  const maxWidth   = width - paddingX * 2;
+  const fontSize   = Math.round(18 * scale);
   const lineHeight = Math.round(28 * scale);
 
-  // Verse text
-  ctx.fillStyle  = TEXT_COLOR;
-  ctx.font       = `${Math.round(18 * scale)}px serif`;
-  ctx.textAlign  = 'center';
+  ctx.textAlign = 'center';
+  ctx.font      = `${fontSize}px Menlo, "Courier New", monospace`;
 
+  // Verse text — white
+  ctx.fillStyle = '#ffffff';
   const lines = wrapText(ctx, verse.text, maxWidth);
-  const blockHeight = lines.length * lineHeight;
+  const blockHeight = lines.length * lineHeight + Math.round(32 * scale);
   let y = (height - blockHeight) / 2;
 
   for (const line of lines) {
@@ -36,14 +28,10 @@ async function generateVerseImage(verse, width, height) {
     y += lineHeight;
   }
 
-  // Reference (e.g. "John 3:16")
-  ctx.fillStyle = ACCENT;
-  ctx.font      = `italic ${Math.round(15 * scale)}px serif`;
-  ctx.fillText(`— ${verse.reference}`, width / 2, y + Math.round(20 * scale));
-
-  // Decorative bottom bar
-  ctx.fillStyle = ACCENT;
-  ctx.fillRect(0, height - Math.max(4, Math.round(4 * scale)), width, Math.max(4, Math.round(4 * scale)));
+  // Reference — white at 50% opacity
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.font      = `${Math.round(13 * scale)}px Menlo, "Courier New", monospace`;
+  ctx.fillText(verse.reference, width / 2, y + Math.round(20 * scale));
 
   return canvas.toBuffer('image/png');
 }
