@@ -4,8 +4,12 @@ const { generateVerseImage } = require('../utils/imageGenerator');
 
 const router = express.Router();
 
-// GET /verse?width=390&height=844
+// GET /verse?width=390&height=844&key=your-secret
 router.get('/', async (req, res) => {
+  if (req.query.key !== process.env.API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   const width = parseInt(req.query.width, 10);
   const height = parseInt(req.query.height, 10);
 
