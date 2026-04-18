@@ -24,12 +24,16 @@ router.get('/', async (req, res) => {
     return res.status(400).json({ error: 'Scaled dimensions exceed 4096px.' });
   }
 
-  const verse = await fetchVerseOfTheDay();
-  const imageBuffer = await generateVerseImage(verse, Math.round(width * scale), Math.round(height * scale));
-
-  res.set('Content-Type', 'image/png');
-  res.set('Cache-Control', 'public, max-age=3600'); // cache for 1 hour
-  res.send(imageBuffer);
+  try {
+    const verse = await fetchVerseOfTheDay();
+    const imageBuffer = await generateVerseImage(verse, Math.round(width * scale), Math.round(height * scale));
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.send(imageBuffer);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
