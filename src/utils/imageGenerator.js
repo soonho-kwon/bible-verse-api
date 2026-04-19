@@ -1,25 +1,37 @@
-const axios = require('axios');
-const { createCanvas, loadImage } = require('@napi-rs/canvas');
+const { createCanvas } = require('@napi-rs/canvas');
 
-function hashStr(str) {
-  let h = 5381;
-  for (let i = 0; i < str.length; i++) h = Math.imul((h << 5) + h, 1) ^ str.charCodeAt(i);
-  return Math.abs(h);
+// Seeded PRNG (mulberry32) for deterministic noise
+function makePrng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s += 0x6d2b79f5;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
-async function generateBackground(verse, width, height) {
-  const prompt =
-    `Dark illustrated scene inspired by ${verse.reference}. ` +
-    `Deep dark background, mostly black. Child's crayon drawing style, rough waxy strokes, ` +
-    `thick outlines, simplistic childlike art, hand-drawn feel, dark moody colors. ` +
-    `No text, no words, no letters, no writing, no typography, no signs, no labels.`;
+function dailySeed() {
+  const d = new Date();
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
 
-  const seed = hashStr(verse.reference);
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}` +
-    `?width=${width}&height=${height}&seed=${seed}&model=flux&nologo=true`;
+function drawBackground(ctx, width, height, seed) {
+  // Base dark grey fill
+  ctx.fillStyle = '#1e1e1e';
+  ctx.fillRect(0, 0, width, height);
 
-  const response = await axios.get(url, { responseType: 'arraybuffer', timeout: 60000 });
-  return Buffer.from(response.data);
+  // Subtle noise overlay — low opacity, varied grey specks
+  const rand = makePrng(seed);
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const v = Math.round((rand() - 0.5) * 28); // ±14 brightness variation
+    data[i]     = Math.max(0, Math.min(255, data[i]     + v));
+    data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + v));
+    data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + v));
+  }
+  ctx.putImageData(imageData, 0, 0);
 }
 
 async function generateVerseImage(verse, width, height) {
@@ -27,16 +39,7 @@ async function generateVerseImage(verse, width, height) {
   const ctx = canvas.getContext('2d');
   const s = Math.min(width, height) / 400;
 
-  const imgBuffer = await generateBackground(verse, width, height);
-  const bgImage = await loadImage(imgBuffer);
-
-  const scale = Math.max(width / bgImage.width, height / bgImage.height);
-  const drawW = bgImage.width * scale;
-  const drawH = bgImage.height * scale;
-  ctx.drawImage(bgImage, (width - drawW) / 2, (height - drawH) / 2, drawW, drawH);
-
-  ctx.fillStyle = 'rgba(0,0,0,0.38)';
-  ctx.fillRect(0, 0, width, height);
+  drawBackground(ctx, width, height, dailySeed());
 
   const paddingX = Math.round(width * 0.1);
   const maxWidth = width - paddingX * 2;
@@ -45,9 +48,6 @@ async function generateVerseImage(verse, width, height) {
 
   ctx.textAlign = 'center';
   ctx.font = `${fontSize}px Menlo, "Courier New", monospace`;
-  ctx.shadowColor = 'rgba(0,0,0,0.9)';
-  ctx.shadowBlur = Math.round(16 * s);
-
   ctx.fillStyle = '#ffffff';
   const lines = wrapText(ctx, verse.text, maxWidth);
   const blockH = lines.length * lineHeight + Math.round(32 * s);
@@ -60,9 +60,6 @@ async function generateVerseImage(verse, width, height) {
   ctx.fillStyle = 'rgba(255,215,130,0.85)';
   ctx.font = `${Math.round(13 * s)}px Menlo, "Courier New", monospace`;
   ctx.fillText(verse.reference, width / 2, y + Math.round(20 * s));
-
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0;
 
   return canvas.toBuffer('image/png');
 }
