@@ -40,7 +40,7 @@ async function fetchESVText(reference) {
     timeout: 8000,
   });
 
-  const text = data.passages[0].trim();
+  const text = data.passages[0].trim().replace(/\s+/g, ' ');
   return { text, reference };
 }
 
